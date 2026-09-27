@@ -54,4 +54,20 @@ openocd -s "$OCDSCRIPTS" -f interface/stlink.cfg -f target/stm32f1x.cfg \
 - `references/code-style.md` —— 代码风格规范、标准库↔HAL 对照表、模块模板
 - `references/toolchain-setup.md` —— 环境探测、winget 安装包与路径、已知坑
 - `references/build-flash-verify.md` —— CMake 配置、编译检查、烧录、运行验证
-- `references/templates/` —— `delay.c/h`（非阻塞定时）、`led.c/h`（LED 驱动），可直接复制使用
+- `references/templates/` —— 可直接复制使用的模块：
+  - `delay.c/h`：非阻塞定时 + 微秒延时
+  - `led.c/h`：GPIO 驱动（推挽输出）
+  - `oled.c/h` + `oled_font.h`：0.96 寸 SSD1306 显示屏驱动（软件模拟 I2C + 8x16 字库）
+
+## 外设模块实战记录
+
+**OLED（SSD1306，0.96 寸，4 脚 I2C）**
+- 接线：SCL→PB8，SDA→PB9（正好是 I2C1 的硬件引脚，但代码用软件模拟，换引脚只需改头文件里的宏）
+- 从机地址 `0x78`；写命令发 `0x00`，写数据发 `0x40`
+- **GPIO 必须配成开漏输出 `GPIO_MODE_OUTPUT_OD`**，不能用推挽——I2C 靠线与仲裁，推挽会烧端口
+- 初始化顺序有讲究：屏幕要先上电延时（约 100ms）再发初始化命令，否则不亮
+- 软件模拟优先于硬件 I2C：STM32F1 的硬件 I2C 在 HAL 库里有名的不稳定，模拟实现更省心且便于排查
+- 需要显示数字/十六进制/二进制时，参考原版驱动补 `OLED_Pow()` 和对应函数即可
+
+写新外设模块的通用步骤：先找该外设的初始化命令序列与关键时序（从已有驱动或数据手册），
+再把 GPIO/通信部分换成 HAL 的写法，其余逻辑照搬。
