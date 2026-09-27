@@ -1,0 +1,4 @@
+# 排除临时文件
+*.log
+build/
+.vscode/
